@@ -15,3 +15,4 @@ C:\Users\Adam\Documents\SumGuyTwitches\Programs\Kerbal Space Program\GameData\Fu
 C:\Users\Adam\Documents\SumGuyTwitches\Programs\Kerbal Space Program\GameData\FuelMyShip\FuelMyShip.pdb
 C:\Users\Adam\Documents\SumGuyTwitches\Development\KSP Mods\FuelMyShip\FuelMyShip\obj\Debug\FuelMyShip.dll
 C:\Users\Adam\Documents\SumGuyTwitches\Development\KSP Mods\FuelMyShip\FuelMyShip\obj\Debug\FuelMyShip.pdb
+C:\Users\Adam\Documents\SumGuyTwitches\Development\KSP Mods\FuelMyShip\FuelMyShip\obj\Debug\FuelMyShip.csprojResolveAssemblyReference.cache
