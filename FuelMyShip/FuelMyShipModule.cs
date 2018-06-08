@@ -1,5 +1,6 @@
 ﻿
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 using System;
@@ -24,6 +25,7 @@ namespace FuelMyShip
         [KSPEvent(guiName="Fill Me Up, Scotty", guiActive=true, active=true)]
         public void FillMeUpButtonClick()
         {
+            
             ////Figure out which direction the station is, ala parent or a child off the docking node            
             ClassifyStation();
 
@@ -31,7 +33,8 @@ namespace FuelMyShip
             ClassifyTanks();
 
             //Transfer the fuel
-            TransferTheFuel();
+            //TransferTheFuel();
+            StartCoroutine(TransferTheFuel());
         }
 
         private void ClassifyStation()
@@ -190,89 +193,95 @@ namespace FuelMyShip
             Log(spacing + "ResourceName: " + resource.resourceName);
               Log(spacing + spacing + "Resource Amount: " + resource.amount + " / " + resource.maxAmount);                
         }
-
-        private void TransferTheFuel()
+        private static double maxTransferSpeedPerSecond = 190;
+        private IEnumerator TransferTheFuel()
         {
+            
             Log("TransferTheFuel");
 
             //for each ship tank, 
             //look at the resource value and for each resource 
             //top off the values from as many or all of the station tanks as needed
             Log("Transferring==========================================");
-
-            //////find a test resource that need at least 10 units
-            ////var shipTank = shipTanks.FirstOrDefault(st => st.Resources.Any(str => str.amount < str.maxAmount - 10));
-            ////var shipResource = shipTank.Resources.FirstOrDefault(str => str.amount < str.maxAmount - 10);
-            ////Log("attempting to fill:");
-            ////LogPart(shipTank);
-            ////LogResource(shipResource);
-
-
-
-
-            ////var stationTank = stationTanks.FirstOrDefault(st => 
-            ////    st.Resources.Any(str => 
-            ////        str.resourceName == shipResource.resourceName
-            ////        && str.amount >= shipResource.maxAmount - shipResource.amount                
-            ////    ));
-
-            ////var stationResource = stationTank.Resources.FirstOrDefault(str =>
-            ////        str.resourceName == shipResource.resourceName
-            ////        && str.amount >= (shipResource.maxAmount - shipResource.amount)
-            ////    );
-            ////Log("using the following");
-            ////LogPart(stationTank);
-            ////LogResource(stationResource);
-
-            ////Log("attempt");
-
-            //////stationTank.TransferResource(stationResource, shipResource.maxAmount - shipResource.amount, shipTank);
-            ////stationResource.amount -= shipResource.maxAmount - shipResource.amount;
-            ////shipResource.amount += shipResource.maxAmount - shipResource.amount;
-
-            ////Log("result");
-            ////LogResource(shipResource);
+            
 
             foreach (var shipTank in shipTanks)//todo: only look at tanks that are not filled up
             {
                 foreach (var shipResource in shipTank.Resources)//todo: only look at resources that are not filled up
                 {
+                    
                     //if the resource is not filled up
                     if (shipResource.amount < shipResource.maxAmount)
                     {
                         var neededAmount = shipResource.maxAmount - shipResource.amount;
                         foreach (var stationTank in stationTanks)//todo: only look at tanks with the right resource
                         {
-                            if (neededAmount == 0)
+                            if (neededAmount <= 0)
                             {
+                                yield return null;
                                 break;
                             }
                             foreach (var stationResource in stationTank.Resources)
                             {
-                                if (neededAmount == 0)
+                                
+                                Log("For each is on ");
+                                LogResource(stationResource);
+
+                                Log("we still need: " + neededAmount);
+                                if (neededAmount <= 0)
                                 {
+                                    yield return null;
                                     break;
                                 }
                                 if (stationResource.resourceName == shipResource.resourceName)
                                 {
+
+                                    Log("Found station resouce " + stationResource.resourceName + " in amount " + stationResource.amount);
+
+                                    double transferAmount = 0;
                                     //if we need more than the station tank has, give us everything
-                                    if(neededAmount >= stationResource.amount)
+                                    if (neededAmount >= stationResource.amount)
                                     {
-                                        shipResource.amount += stationResource.amount;
-                                        stationResource.amount -= stationResource.amount;
-                                        neededAmount -= stationResource.amount;
+                                        Log("needed (" + neededAmount + ")is greater or equal to " + stationResource.amount);
+                                        transferAmount = stationResource.amount;
+
                                     }
                                     else
                                     {
-                                        shipResource.amount += neededAmount;
-                                        stationResource.amount -= neededAmount;
-                                        neededAmount -= neededAmount;
+                                        Log("needed (" + neededAmount + ")is NOT greater or equal to " + stationResource.amount);
+                                        transferAmount = neededAmount;
+                                        
                                     }
+                                    if(transferAmount == 0)
+                                    {
+                                        break;
+                                    }
+                                    Log("transfer amount: " + transferAmount);
+                                    Log("stationResource.amount: " + transferAmount);
+                                    Log("shipResource.amount: " + transferAmount);
+                                    Log("moving");
+                                    shipResource.amount += transferAmount;
+
+                                    Log("stationResource.amount: " + transferAmount);
+                                    Log("shipResource.amount: " + transferAmount);
+                                    Log("Update station tank");
+                                    stationResource.amount -= transferAmount;
+
+                                    Log("stationResource.amount: " + transferAmount);
+                                    Log("shipResource.amount: " + transferAmount);
+                                    Log("update needed amount");
+                                    neededAmount -= transferAmount;
+
+                                    Log("needed amount: " + neededAmount);
                                 }
+                                yield return null;
                             }
+                            yield return null;
                         }
                     }
+                    yield return null;
                 }
+                yield return null;
             }
         }
     }
