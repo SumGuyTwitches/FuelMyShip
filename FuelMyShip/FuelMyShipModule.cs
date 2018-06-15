@@ -1,30 +1,70 @@
-﻿
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-using System;
 using System.Linq;
 
 namespace FuelMyShip
-{
-    
+{    
     class FuelMyShipModule : PartModule
-    {
-        
+    {        
         public static void Log(string message)
         {
-            Debug.Log("FuelMyShipLog -------------------- " + ":" + message);
+            //Debug.Log("FuelMyShipLog -------------------- " + ":" + message);
         }
 
         private bool stationIsParent;
         private Part stationDockingPort = null;
+        private double wiggleRoom = 0.004;
+        private bool stopTransfer = false;
+        private Coroutine activeCoroutine = null;
         private List<Part> stationTanks = new List<Part>();
         private List<Part> shipTanks = new List<Part>();
+
+       
+        public void Stop()
+        {
+            if(activeCoroutine != null)
+            {
+                StopCoroutine(activeCoroutine);
+            }
+            stopTransfer = true;
+            showButton("FillMeUpButtonClick");
+            hideButton("StopTransfer");
+
+        }
+
+        [KSPEvent(guiName = "Stop Transfer", guiActive = false, active = false)]
+        public void StopTransfer()
+        {
+            var allFuelMyShipModules = vessel.FindPartModulesImplementing<FuelMyShipModule>();
+            allFuelMyShipModules.ForEach(fmm => fmm.Stop());
+        }
+
+        private void showButton(string eventName)
+        {
+            var fillButton = Events[eventName];
+            fillButton.active = true;
+            fillButton.guiActive = true;
+        }
+
+        private void hideButton(string eventName)
+        {
+            var stopButton = Events[eventName];
+            stopButton.active = false;
+            stopButton.guiActive = false;
+        }
 
         [KSPEvent(guiName="Fill Me Up, Scotty", guiActive=true, active=true)]
         public void FillMeUpButtonClick()
         {
+            //don't do multiple transfers all at once
+            StopTransfer();
+            
+            stopTransfer = false;
+
+            hideButton("FillMeUpButtonClick");
+            showButton("StopTransfer");
             
             ////Figure out which direction the station is, ala parent or a child off the docking node            
             ClassifyStation();
@@ -33,8 +73,7 @@ namespace FuelMyShip
             ClassifyTanks();
 
             //Transfer the fuel
-            //TransferTheFuel();
-            StartCoroutine(TransferTheFuel());
+            activeCoroutine = StartCoroutine(TransferTheFuel());
         }
 
         private void ClassifyStation()
@@ -43,16 +82,10 @@ namespace FuelMyShip
             ModuleDockingNode node = this.part.FindModuleImplementing<ModuleDockingNode>();
 
             var otherNode = node.FindOtherNode();
-            //if (otherNode != null)
-            //{
-            //    Log("node.FindOtherNode");             
-            //}
 
             if (otherNode == null)
             {
                 otherNode = node.otherNode;
-                //Log("node.otherNode");
-
             }
 
 
@@ -63,28 +96,20 @@ namespace FuelMyShip
             else
             {
                 Log(otherNode.part.partName);
-                //Log("here 2");
                 stationDockingPort = otherNode.part;
 
-
-               // Log("hypothesis this.part.parent is null yes? " + (this.part.parent == null).ToString());
-
-                //if this part's parent is othernode part then the station is the parent
+                                //if this part's parent is othernode part then the station is the parent
                 if (this.part.parent != null && this.part.parent == otherNode.part)
                 {
                     stationIsParent = true;
                 }
-
-                //Log("here 3");
+                
                 //if the other part's parent is this part then the station is a child
                 if (otherNode.part.parent != null && otherNode.part.parent == this.part)
                 {
                     stationIsParent = false;
                 }
-                //Log("here 4");
-            }
-
-            
+            }            
         }
 
         private void ClassifyTanks()
@@ -105,24 +130,8 @@ namespace FuelMyShip
             {
                 shipTanks.AddRange(GetParentTanks(this.part, stationDockingPort));
 
-                stationTanks.AddRange(GetChildrenTanks(stationDockingPort));//todo: need the station's docking port, the part this dock is docked too
-            }
-
-            //Log(" ");
-            //Log("ShipTanks: ");
-            //foreach (var tank in shipTanks)
-            //{
-            //    LogResourceTank(tank);
-            //}
-
-
-            //Log(" ");
-            //Log("StationTanks: ");
-            //foreach (var tank in stationTanks)
-            //{
-            //    LogResourceTank(tank);
-            //}
-            
+                stationTanks.AddRange(GetChildrenTanks(stationDockingPort));
+            }                       
         }
 
         private void LogResourceTank(Part tank)
@@ -136,7 +145,6 @@ namespace FuelMyShip
 
         private IEnumerable<Part> GetParentTanks(Part part, Part previousPart)
         {
-
             var parentTanks = new List<Part>();
             if (part.Resources.Count > 0)
             {
@@ -154,44 +162,24 @@ namespace FuelMyShip
                 }
             }
             return parentTanks;
-
         }
-        private bool ContainsTransferableResources(Part part)
-        {
-            var containsTransferableResources = false;
-
-            if(part.Resources.Count == 0)
-            {
-                return false;
-            }
-
-            foreach (var resource in part.Resources)
-            {
-                LogResource(resource);
-                if(resource.info.resourceTransferMode == ResourceTransferMode.PUMP)
-                {
-
-                }
-            }
-
-            return containsTransferableResources;
-        }
+        
 
         private IEnumerable<Part> GetChildrenTanks(Part part)
         {
             var childrenTanks = new List<Part>();
             //if this part has resources add it to the list
-            if(part.Resources.Count > 0 /*&& ContainsTransferableResources(part)*/)
+            if(part.Resources.Count > 0)
             {
                 childrenTanks.Add(part);
             }
-
 
             //add the tanks from the children
             foreach (var child in part.children)
             {
                 childrenTanks.AddRange(GetChildrenTanks(child));
             }
+
             return childrenTanks;
         }
 
@@ -222,93 +210,96 @@ namespace FuelMyShip
         private static double maxTransferSpeedPerSecond = 190;
         private IEnumerator TransferTheFuel()
         {
-            //todo: flow at some rate
-            double transferAmountExample = Time.deltaTime * maxTransferSpeedPerSecond;
-            Log("TransferTheFuel");
+            // only get available station resources that are not empty and are not locked
+            var stationResources = 
+                    stationTanks.SelectMany(st => 
+                        st.Resources.Where(r => r.flowState && r.info.resourceTransferMode != ResourceTransferMode.NONE && r.amount > 0));
 
-            //for each ship tank, 
-            //look at the resource value and for each resource 
-            //top off the values from as many or all of the station tanks as needed
-            Log("Transferring==========================================");
-            
+            // only get ship resources that are not full
+            var shipResources = 
+                shipTanks.SelectMany(st => 
+                    st.Resources.Where(r => r.flowState && r.info.resourceTransferMode != ResourceTransferMode.NONE && r.amount <= r.maxAmount - wiggleRoom));
 
-            foreach (var shipTank in shipTanks)//todo: only look at tanks that are not filled up
-            {
-                foreach (var shipResource in shipTank.Resources.Where(r => r.info.resourceTransferMode != ResourceTransferMode.NONE))//todo: only look at resources that are not filled up
+            var resourceTypes = shipResources.Select(r => r.resourceName).Distinct().ToList();
+
+            while (
+                    !stopTransfer 
+                    && shipResources.Any(r => r.amount < r.maxAmount - wiggleRoom
+                    && stationResources.Any(sr => sr.resourceName == r.resourceName && sr.amount > 0))
+                  )
+            {                
+                resourceTypes = shipResources
+                    .Where(sr => sr.amount < sr.maxAmount - wiggleRoom)
+                    .Select(r => r.resourceName).Distinct().ToList();
+
+                //get the max amount to transfer
+                double transferLimit = Time.deltaTime * maxTransferSpeedPerSecond;
+
+                foreach (var resourceType in resourceTypes)
                 {                    
-                    //if the resource is not filled up
-                    if (shipResource.amount < shipResource.maxAmount)
+                    //divide that by each ship resource that still not full
+                    var shipResoucesStillNotFull = shipResources.Where(sr => sr.amount < sr.maxAmount 
+                        && sr.resourceName == resourceType
+                        && sr.flowState);
+
+                    var transferAmountPerShipResource = transferLimit / shipResoucesStillNotFull.Count();
+
+                    
+                    //divide that by the number of station resources that are not empty
+                    var stationResourcesThatAreNotEmpty = stationResources.Where(sr => sr.amount > 0 
+                        && sr.resourceName == resourceType
+                        && sr.flowState);
+
+                    var transferAmountPerStationResource = transferAmountPerShipResource / stationResourcesThatAreNotEmpty.Count();
+                    
+                    foreach (var shipResource in shipResoucesStillNotFull)
                     {
-                        var neededAmount = shipResource.maxAmount - shipResource.amount;
-                        foreach (var stationTank in stationTanks)//todo: only look at tanks with the right resource
+                        foreach (var stationResource in stationResourcesThatAreNotEmpty)
                         {
-                            if (neededAmount <= 0)
-                            {
-                                yield return null;
-                                break;
-                            }
-                            foreach (var stationResource in stationTank.Resources)
-                            {
-                                
-                                Log("For each is on ");
-                                LogResource(stationResource);
-
-                                Log("we still need: " + neededAmount);
-                                if (neededAmount <= 0)
-                                {
-                                    yield return null;
-                                    break;
-                                }
-                                if (stationResource.resourceName == shipResource.resourceName)
-                                {
-
-                                    Log("Found station resouce " + stationResource.resourceName + " in amount " + stationResource.amount);
-
-                                    double transferAmount = 0;
-                                    //if we need more than the station tank has, give us everything
-                                    if (neededAmount >= stationResource.amount)
-                                    {
-                                        Log("needed (" + neededAmount + ")is greater or equal to " + stationResource.amount);
-                                        transferAmount = stationResource.amount;
-
-                                    }
-                                    else
-                                    {
-                                        Log("needed (" + neededAmount + ")is NOT greater or equal to " + stationResource.amount);
-                                        transferAmount = neededAmount;
-                                        
-                                    }
-                                    if(transferAmount == 0)
-                                    {
-                                        break;
-                                    }
-                                    Log("transfer amount: " + transferAmount);
-                                    Log("stationResource.amount: " + transferAmount);
-                                    Log("shipResource.amount: " + transferAmount);
-                                    Log("moving");
-                                    shipResource.amount += transferAmount;
-
-                                    Log("stationResource.amount: " + transferAmount);
-                                    Log("shipResource.amount: " + transferAmount);
-                                    Log("Update station tank");
-                                    stationResource.amount -= transferAmount;
-
-                                    Log("stationResource.amount: " + transferAmount);
-                                    Log("shipResource.amount: " + transferAmount);
-                                    Log("update needed amount");
-                                    neededAmount -= transferAmount;
-
-                                    Log("needed amount: " + neededAmount);
-                                }
-                                yield return null;
-                            }
-                            yield return null;
+                            var amountTransferred = TryToTransfer(stationResource, shipResource, transferAmountPerStationResource);
                         }
                     }
-                    yield return null;
                 }
-                yield return null;
+                yield return null; 
             }
+            StopTransfer();          
+        }
+
+        /// <summary>
+        /// Tries to transfer the requested amount from the fromResource to the toResource
+        /// </summary>
+        /// <param name="fromResource">the resource to tranfer from</param>
+        /// <param name="toResource">the resource to transfer to</param>
+        /// <param name="amount">how much to transfer</param>
+        /// <returns>the amount it was able to transfer</returns>
+        private double TryToTransfer(PartResource fromResource, PartResource toResource, double amount)
+        {
+            
+            var actualAmount = amount;
+
+            //bandaid to prevent overfilling
+            if (toResource.amount >= toResource.maxAmount)
+            {
+                actualAmount = 0;
+            }
+
+            //if there is not enough in the fromResource, just transfer all it has
+            if (fromResource.amount < actualAmount)
+            {
+                actualAmount = fromResource.amount;
+            }
+
+            // if we are trying to transfer more than the toResource can handle then only take what it can take
+            var toResourceAvailableRoom = toResource.maxAmount - toResource.amount;
+            if (actualAmount > toResourceAvailableRoom)
+            {
+                actualAmount = toResourceAvailableRoom;
+            }
+
+            fromResource.amount -= actualAmount;
+            toResource.amount += actualAmount;
+            
+            return actualAmount;
         }
     }
 }
