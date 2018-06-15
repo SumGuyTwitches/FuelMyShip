@@ -156,12 +156,32 @@ namespace FuelMyShip
             return parentTanks;
 
         }
+        private bool ContainsTransferableResources(Part part)
+        {
+            var containsTransferableResources = false;
+
+            if(part.Resources.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var resource in part.Resources)
+            {
+                LogResource(resource);
+                if(resource.info.resourceTransferMode == ResourceTransferMode.PUMP)
+                {
+
+                }
+            }
+
+            return containsTransferableResources;
+        }
 
         private IEnumerable<Part> GetChildrenTanks(Part part)
         {
             var childrenTanks = new List<Part>();
             //if this part has resources add it to the list
-            if(part.Resources.Count > 0)
+            if(part.Resources.Count > 0 /*&& ContainsTransferableResources(part)*/)
             {
                 childrenTanks.Add(part);
             }
@@ -191,12 +211,19 @@ namespace FuelMyShip
         {
             var spacing = "     ";
             Log(spacing + "ResourceName: " + resource.resourceName);
-              Log(spacing + spacing + "Resource Amount: " + resource.amount + " / " + resource.maxAmount);                
+            Log(spacing + spacing + "Resource Amount: " + resource.amount + " / " + resource.maxAmount);
+
+            Log(spacing + spacing + "info?.resourceFlowMode: " + resource.info?.resourceFlowMode.ToString() );
+            Log(spacing + spacing + "info?.resourceTransferMode: " + resource.info?.resourceTransferMode.ToString());
+
+            Log(spacing + spacing + "GetInfo: " + resource.GetInfo());
         }
+
         private static double maxTransferSpeedPerSecond = 190;
         private IEnumerator TransferTheFuel()
         {
-            
+            //todo: flow at some rate
+            double transferAmountExample = Time.deltaTime * maxTransferSpeedPerSecond;
             Log("TransferTheFuel");
 
             //for each ship tank, 
@@ -207,9 +234,8 @@ namespace FuelMyShip
 
             foreach (var shipTank in shipTanks)//todo: only look at tanks that are not filled up
             {
-                foreach (var shipResource in shipTank.Resources)//todo: only look at resources that are not filled up
-                {
-                    
+                foreach (var shipResource in shipTank.Resources.Where(r => r.info.resourceTransferMode != ResourceTransferMode.NONE))//todo: only look at resources that are not filled up
+                {                    
                     //if the resource is not filled up
                     if (shipResource.amount < shipResource.maxAmount)
                     {
