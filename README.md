@@ -15,5 +15,7 @@ Alpha version of fuel my ship.
 
 Latest version and source available at https://github.com/SumGuyTwitches/FuelMyShip
 
+To install put contents of the release zip file into your GameData folder.
+
 
 
