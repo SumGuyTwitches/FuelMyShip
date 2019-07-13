@@ -11,7 +11,7 @@ To use:
 
 Uses the fantastic ModuleManager included in the release. For All the latest on module manager and to thank them for their work go to https://forum.kerbalspaceprogram.com/index.php?/topic/50533-141-module-manager-307-may-5th-2018-its-dangerous-to-go-alone-take-those-cats-with-you/ 
 
-Alpha version of fuel my ship.
+
 
 Latest version and source available at https://github.com/SumGuyTwitches/FuelMyShip
 
