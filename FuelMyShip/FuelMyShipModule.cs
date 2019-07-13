@@ -167,6 +167,8 @@ namespace FuelMyShip
 
         private IEnumerable<Part> GetChildrenTanks(Part part)
         {
+
+            
             var childrenTanks = new List<Part>();
             //if this part has resources add it to the list
             if(part.Resources.Count > 0)
@@ -222,6 +224,7 @@ namespace FuelMyShip
 
             var resourceTypes = shipResources.Select(r => r.resourceName).Distinct().ToList();
 
+            var UTlast = Planetarium.GetUniversalTime();
             while (
                     !stopTransfer 
                     && shipResources.Any(r => r.amount < r.maxAmount - wiggleRoom
@@ -231,9 +234,10 @@ namespace FuelMyShip
                 resourceTypes = shipResources
                     .Where(sr => sr.amount < sr.maxAmount - wiggleRoom)
                     .Select(r => r.resourceName).Distinct().ToList();
-
+                var UTnow = Planetarium.GetUniversalTime();
+                var deltatime = UTnow - UTlast;
                 //get the max amount to transfer
-                double transferLimit = Time.deltaTime * maxTransferSpeedPerSecond;
+                double transferLimit = deltatime * maxTransferSpeedPerSecond;
 
                 foreach (var resourceType in resourceTypes)
                 {                    
@@ -260,6 +264,7 @@ namespace FuelMyShip
                         }
                     }
                 }
+                UTlast = UTnow;
                 yield return null; 
             }
             StopTransfer();          
